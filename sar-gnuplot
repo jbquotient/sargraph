@@ -1,0 +1,86 @@
+#!/bin/bash
+# 20140602 James Boyle (jwb)
+# do nice stuff with sar for gnuplot
+# 20151117 jwb - minor updates for siris14n
+
+usage() {
+    printf "$0 <sa file> <tmp-dir> <outdir/file>\n"
+    exit 1
+}
+
+[ -z "$1" ] && usage
+[ -z "$2" ] && usage
+[ -z "$3" ] && usage
+
+SAR=/usr/bin/sar
+export LC_TIME=POSIX
+
+$SAR -n DEV -f $1 |egrep -v IFACE\|Average |grep em1 > $2/dev-em1
+$SAR -n DEV -f $1 |egrep -v IFACE\|Average |grep em2 > $2/dev-em2
+#$SAR -n NFS -f $1 |sed '/[a-zA-Z]/d' |sed '/^$/d' > $2/nfs
+$SAR -q -f $1 |sed '/[a-zA-Z]/d' |sed '/^$/d' > $2/queue
+$SAR -r -f $1 |sed '/[a-zA-Z]/d' |sed '/^$/d' > $2/mem
+$SAR -w -f $1 |sed '/[a-zA-Z]/d' |sed '/^$/d' > $2/tasks
+$SAR -u -f $1 |sed 's|all||' |sed '/[a-zA-Z]/d' | sed '/^$/d' > $2/cpu
+$SAR -v -f $1 |grep '^[0-9]' |grep -v dentunusd > $2/files
+$SAR -d -f $1 |sed '/[A-Z]/d' |grep dev9-0 > $2/md0
+$SAR -d -f $1 |sed '/[A-Z]/d' |grep dev9-1 > $2/md1
+$SAR -d -f $1 |sed '/[A-Z]/d' |grep dev9-2 > $2/md2
+$SAR -d -f $1 |sed '/[A-Z]/d' |grep dev8-0 > $2/sda
+$SAR -d -f $1 |sed '/[A-Z]/d' |grep dev8-16 > $2/sdb
+$SAR -d -f $1 |sed '/[A-Z]/d' |grep dev8-32 > $2/sdc
+$SAR -d -f $1 |sed '/[A-Z]/d' |grep dev8-48 > $2/sdd
+$SAR -d -f $1 |sed '/[A-Z]/d' |grep dev8-64 > $2/sde
+
+gnuplot <<XYZZY
+set xdata time
+set timefmt "%H:%M:%S"
+set key left
+set format x "%H:%M"
+set grid
+set terminal png size 1440, 4114
+set output "$3"
+set style data lines
+set multiplot layout 8, 1
+set tmargin 2
+
+set title "Memory"
+plot "$2/mem" using 1:4 title "% total used", '' using 1:( (\$3-\$6) / 264420532 ) title "% direct alloc", \
+  '' using 1:( \$6 / 264420532 ) title "% cache", '' using 1:( \$8 / \$7 * 100 ) title "% swap"
+
+set title "# Processes / CX Switches"
+plot "$2/queue" using 1:3 title "#procs", "$2/tasks" using 1:2 title "cx switch/s"
+
+set title "open filehandles"
+plot "$2/files" using 1:3 title "open files"
+
+set title "%CPU"
+plot "$2/cpu" using 1:(\$2+\$3+\$4) title "user+nice+sys", '' using 1:5 title "I/O wait"
+
+set title "em1"
+set logscale y
+plot "$2/dev-em1" using 1:5 title "RX Bytes/s", '' using 1:6 title "TX Bytes/s"
+
+set title "em2"
+set logscale y
+plot "$2/dev-em2" using 1:5 title "RX Bytes/s", '' using 1:6 title "TX Bytes/s"
+
+# set title "NFS"
+# unset logscale y
+# plot "$2/nfs" using 1:4 title "Read/s", '' using 1:5 title "Write/s", '' using 1:6 title "Access/s", '' using 1:7 title "Getatt/s"
+
+set title "System Partition"
+set logscale y
+plot [*:*] [0.1:*] "$2/md1" using 1:(\$4/2) title "md1 KiB/s (read)", '' using 1:(\$5/2) title "md1 KiB/s (write)", \
+ "$2/sda" using 1:(\$4/2) title "sda KiB/s (read)", '' using 1:(\$5/2) title "sda KiB/s (write)", \
+ "$2/sdb" using 1:(\$4/2) title "sdb KiB/s (read)", '' using 1:(\$5/2) title "sdb KiB/s (write)"
+
+set title "Data Partition"
+set logscale y
+plot [*:*] [0.1:*] "$2/md2" using 1:(\$4/2) title "md2 KiB/s (read)", '' using 1:(\$5/2) title "md2 KiB/s (write)", \
+ "$2/sdc" using 1:(\$4/2) title "sdc KiB/s (read)", '' using 1:(\$5/2) title "sdc KiB/s (write)", \
+ "$2/sdd" using 1:(\$4/2) title "sdd KiB/s (read)", '' using 1:(\$5/2) title "sdd KiB/s (write)", \
+ "$2/sde" using 1:(\$4/2) title "sde KiB/s (read)", '' using 1:(\$5/2) title "sde KiB/s (write)"
+
+unset multiplot
+XYZZY
