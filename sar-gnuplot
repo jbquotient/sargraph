@@ -15,8 +15,11 @@ usage() {
 SAR=/usr/bin/sar
 export LC_TIME=POSIX
 
+CWFILE=$(echo "$1" | sed 's|/var/log/sa/sa|/var/log/sa/cw|')
+
 $SAR -n DEV -f $1 |egrep -v IFACE\|Average |grep em1 > $2/dev-em1
 $SAR -n DEV -f $1 |egrep -v IFACE\|Average |grep em2 > $2/dev-em2
+$SAR -n SOCK -f $1 |sed '/[a-zA-Z]/d' |grep '[0-9]' > $2/sockets
 #$SAR -n NFS -f $1 |sed '/[a-zA-Z]/d' |sed '/^$/d' > $2/nfs
 $SAR -q -f $1 |sed '/[a-zA-Z]/d' |sed '/^$/d' > $2/queue
 $SAR -r -f $1 |sed '/[a-zA-Z]/d' |sed '/^$/d' > $2/mem
@@ -32,21 +35,24 @@ $SAR -d -f $1 |sed '/[A-Z]/d' |grep dev8-32 > $2/sdc
 $SAR -d -f $1 |sed '/[A-Z]/d' |grep dev8-48 > $2/sdd
 $SAR -d -f $1 |sed '/[A-Z]/d' |grep dev8-64 > $2/sde
 
+# TOTALMEM=65536 #units are KiB, uncomment and set to override auto-detect
+[ -z $TOTALMEM ] && TOTALMEM=$(head -1 /proc/meminfo |sed 's|^.* \([0-9]\)|\1|;s| .*$||')
+
 gnuplot <<XYZZY
 set xdata time
 set timefmt "%H:%M:%S"
 set key left
 set format x "%H:%M"
 set grid
-set terminal png size 1440, 4114
+set terminal png size 1440, 4628
 set output "$3"
 set style data lines
 set multiplot layout 8, 1
 set tmargin 2
 
 set title "Memory"
-plot "$2/mem" using 1:4 title "% total used", '' using 1:( (\$3-\$6) / 264420532 ) title "% direct alloc", \
-  '' using 1:( \$6 / 264420532 ) title "% cache", '' using 1:( \$8 / \$7 * 100 ) title "% swap"
+plot "$2/mem" using 1:4 title "% total used", '' using 1:( (\$3-\$6) / $TOTALMEM ) title "% direct alloc", \
+  '' using 1:( \$6 / $TOTALMEM ) title "% cache", '' using 1:( \$8 / \$7 * 100 ) title "% swap"
 
 set title "# Processes / CX Switches"
 plot "$2/queue" using 1:3 title "#procs", "$2/tasks" using 1:2 title "cx switch/s"
@@ -56,6 +62,9 @@ plot "$2/files" using 1:3 title "open files"
 
 set title "%CPU"
 plot "$2/cpu" using 1:(\$2+\$3+\$4) title "user+nice+sys", '' using 1:5 title "I/O wait"
+
+set title "sockets"
+plot "$2/sockets" using 1:2 title "Total", '' using 1:3 title "TCP", '' using 1:4 title "UDP", '' using 1:7 title "TCP time_wait", "$CWFILE" using 1:2 title "TCP close_wait"
 
 set title "em1"
 set logscale y
