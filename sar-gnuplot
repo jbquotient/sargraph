@@ -1,7 +1,8 @@
 #!/bin/bash
 # 20140602 James Boyle (jwb)
 # do nice stuff with sar for gnuplot
-# 20151117 jwb - minor updates for siris14n
+# 20151117 jwb - minor updates
+# 20160208 - auto detect mem, sockets future CL in git
 
 usage() {
     printf "$0 <sa file> <tmp-dir> <outdir/file>\n"
