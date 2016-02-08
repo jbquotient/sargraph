@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# 20160106 James Boyle
+# The purpose of this simple script is to count the number of sockets in
+# the CLOSE-WAIT state, append the record to a file, and then exit.
+
+DATEY=$(date +%Y%m%d-%H%M%S)
+DAY=${DATEY:6:2}
+TIMEY=${DATEY:9:2}:${DATEY:11:2}:${DATEY:13:2}
+CLOSE_WAIT=$(/usr/sbin/ss |grep ^CLOSE-WAIT |wc -l)
+OUTFILE=/var/log/sa/cw${DAY}
+
+create () {
+    touch ${OUTFILE}
+    chmod ugo+r ${OUTFILE}
+}
+
+# we need to make sure that 
+#  a) file is created if it doesn't exist
+#  b) file is truncated if it is from last month
+
+checkfile () {
+    if [ -f ${OUTFILE} ]; then
+        FDATE="$(stat -c %y ${OUTFILE})"
+        if [ ${DATEY:4:2} -ne ${FDATE:5:2} ]; then
+            rm -f ${OUTFILE}
+            create
+        fi
+    else
+        create
+    fi
+}
+
+checkfile
+printf "${TIMEY} ${CLOSE_WAIT}\n" >> ${OUTFILE}
