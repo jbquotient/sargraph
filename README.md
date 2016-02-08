@@ -8,7 +8,7 @@ The purpose of this software is to Utilize information gathered from sysstat (sa
 - Sysstat
 - Manual configuration:
 
-`mkdir /var/spool/sargraphs`
+`mkdir -p /var/spool/sargraphs/tmp`
 
 `chown root:wheel /var/spool/sargraphs`
 
@@ -23,6 +23,8 @@ The purpose of this software is to Utilize information gathered from sysstat (sa
 `add to crontab: */15 * * * * /usr/local/libexec/sar-gnuplot-cron current > /var/spool/sargraphs/sar-gnuplot-current.log 2>&1`
 
 `add to crontab: 1 0 * * * /usr/local/libexec/sar-gnuplot-cron yesterday > /var/spool/sargraphs/sar-gnuplot-yesterday.log 2>&1`
+
+`add to crontab: */1 * * * * /usr/local/libexec/close-wait-track`
 
 ## TODO #
 - Make configuration automatic (at present you have a lot to do by hand)
